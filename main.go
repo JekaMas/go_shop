@@ -26,7 +26,9 @@ func main() {
 
 	//создает новый шоп и тут же обновляет его,
 	// убирая все товары с невозможной стоимостью
-	shop := shop.NewShop(shopItems, shopUsers)
+	bigCacheMap := shop.NewBigCache(100)
+	//bigCacheMap := &shop.BigCacheStub{}
+	shop := shop.NewShop(shopItems, shopUsers, bigCacheMap)
 
 	err := shop.Buy([]string{"apple", "banana"}, "masha")
 	shop.Intrigue(err, "masha")

@@ -10,11 +10,12 @@ type Shop struct {
 	users       map[string]Useer
 	items       map[string]Itemer
 	littleCache map[string]map[string]int
-	bigCache    map[string]int
+	bigCache    cacher
 }
 
-func NewShop(items []Itemer, users []Useer) *Shop {
+func NewShop(items []Itemer, users []Useer, bigCache cacher) *Shop {
 	shop := newShopPrepare(items, users)
+	shop.bigCache = bigCache
 	shop.newShopUpdate(items, users)
 
 	return shop
@@ -32,13 +33,11 @@ func newShopPrepare(items []Itemer, users []Useer) *Shop {
 	}
 
 	littleCacheMap := make(map[string]map[string]int)
-	bigCacheMap := make(map[string]int)
 
 	return &Shop{
 		users:       usersMap,
 		items:       itemsMap,
 		littleCache: littleCacheMap,
-		bigCache:    bigCacheMap,
 	}
 }
 
@@ -48,10 +47,9 @@ func (s *Shop) newShopUpdate(items []Itemer, users []Useer) {
 	//апдейт предметов
 	s.itemsUpdate(items)
 	//сносим мапу, которая с длинными заказами
-	s.bigCache = make(map[string]int)
+	s.bigCache.Clear()
 	//редактируем мапу, которая с короткими заказами
 	s.editLittleMap(items)
-
 }
 
 const deleteKey = -1
@@ -138,7 +136,7 @@ func (s *Shop) buyBigPrice(order []string, user string) error {
 	//делаем хэш
 	hash := makeHash(order)
 	//если хэш найден, проводим оплату
-	sum, ok := s.checkBigCache(hash)
+	sum, ok := s.bigCache.Get(hash)
 	if ok {
 		err := s.payment(sum, user, order)
 		if err == nil { //если деньги есть, делаем доставку
@@ -151,18 +149,12 @@ func (s *Shop) buyBigPrice(order []string, user string) error {
 	sum = s.collectOrder(order, user) //собираем заказ
 	err := s.payment(sum, user, order)
 	//делаем кэш. Даже если покупка не состоится (денег нет), все равно делаем
-	s.writeBigCache(hash, sum)
+	s.bigCache.Set(hash, sum)
 	//если ошибок нет, списываем товары
 	if err == nil {
 		s.delivery(order)
 	}
 	return err
-}
-
-func (s *Shop) checkBigCache(hash string) (int, bool) {
-	sum, ok := s.bigCache[hash]
-
-	return sum, ok
 }
 
 func (s *Shop) collectOrder(order []string, user string) int {
@@ -210,10 +202,6 @@ func (s *Shop) payment(sum int, user string, order []string) error {
 
 	s.users[user].CashMinus(sum)
 	return nil
-}
-
-func (s *Shop) writeBigCache(hash string, sum int) {
-	s.bigCache[hash] = sum
 }
 
 func (s *Shop) delivery(order []string) {
