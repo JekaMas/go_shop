@@ -1,27 +1,27 @@
 package users
 
 type user struct {
-	name string
-	cash int
+	Name string
+	Cash int
 }
 
-func NewUser(name string, cash int) *user {
+func New(name string, cash int) *user {
 	return &user{
-		name: name,
-		cash: cash,
+		Name: name,
+		Cash: cash,
 	}
 }
 
 func (u user) GetName() string {
-	return u.name
+	return u.Name
 }
 
 func (u user) GetCash() int {
-	return u.cash
+	return u.Cash
 }
 
 func (u *user) CashMinus(sum int) {
-	u.cash = u.cash - sum
+	u.Cash = u.Cash - sum
 }
 
 func (u user) GetStatusUser() bool {

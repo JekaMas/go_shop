@@ -6,60 +6,34 @@ import (
 	"sort"
 )
 
-type Shop struct {
+const deletekey = -1
+
+type shop struct {
 	users       map[string]Useer
 	items       map[string]Itemer
 	littleCache map[string]map[string]int
-	bigCache    cacher
+	bigCache    map[string]int
 }
 
-func NewShop(items []Itemer, users []Useer, bigCache cacher) *Shop {
-	shop := newShopPrepare(items, users)
-	shop.bigCache = bigCache
-	shop.newShopUpdate(items, users)
+type shopUpdater struct{}
 
-	return shop
-}
-
-func newShopPrepare(items []Itemer, users []Useer) *Shop {
-	usersMap := make(map[string]Useer, len(items))
-	itemsMap := make(map[string]Itemer, len(users))
-
-	for _, user := range users {
-		usersMap[user.GetName()] = user
-	}
-	for _, item := range items {
-		itemsMap[item.GetName()] = item
-	}
-
-	littleCacheMap := make(map[string]map[string]int)
-
-	return &Shop{
-		users:       usersMap,
-		items:       itemsMap,
-		littleCache: littleCacheMap,
-	}
-}
-
-func (s *Shop) newShopUpdate(items []Itemer, users []Useer) {
+func (su *shopUpdater) newShopUpdate(s *shop, items []Itemer, users []Useer) {
 	//апдейт юзеров
 	s.userUpdate(users)
 	//апдейт предметов
 	s.itemsUpdate(items)
 	//сносим мапу, которая с длинными заказами
-	s.bigCache.Clear()
+	s.bigCache = make(map[string]int)
 	//редактируем мапу, которая с короткими заказами
 	s.editLittleMap(items)
 }
 
-const deleteKey = -1
-
-func (s *Shop) userUpdate(users []Useer) {
+func (s *shop) userUpdate(users []Useer) {
 	for _, user := range users {
 		_, ok := s.users[user.GetName()]
 		if ok {
 			delete(s.users, user.GetName())
-			if user.GetCash() != deleteKey {
+			if user.GetCash() != deletekey {
 				s.users[user.GetName()] = user
 			}
 		} else {
@@ -68,20 +42,20 @@ func (s *Shop) userUpdate(users []Useer) {
 	}
 }
 
-func (s *Shop) itemsUpdate(items []Itemer) {
+func (s *shop) itemsUpdate(items []Itemer) {
 	for _, item := range items {
 		_, ok := s.items[item.GetName()]
 		if ok {
 			delete(s.items, item.GetName())
 
 		}
-		if item.GetPrice() > deleteKey {
+		if item.GetPrice() > deletekey {
 			s.items[item.GetName()] = item
 		}
 	}
 }
 
-func (s *Shop) editLittleMap(items []Itemer) {
+func (s *shop) editLittleMap(items []Itemer) {
 	for _, item := range items {
 		_, ok := s.littleCache[item.GetName()]
 		if ok {
@@ -99,7 +73,7 @@ func (s *Shop) editLittleMap(items []Itemer) {
 	}
 }
 
-func (s *Shop) Buy(order []string, user string) error {
+func (s *shop) Buy(order []string, user string) error {
 	//сначала чекаем существует ли товар, и есть ли он на складе
 	err := s.checkItems(order)
 	if err != nil {
@@ -118,7 +92,7 @@ func (s *Shop) Buy(order []string, user string) error {
 	return err
 }
 
-func (s *Shop) checkItems(order []string) error {
+func (s *shop) checkItems(order []string) error {
 	for _, item := range order {
 		_, ok := s.items[item]
 		if !ok {
@@ -132,11 +106,11 @@ func (s *Shop) checkItems(order []string) error {
 	return nil
 }
 
-func (s *Shop) buyBigPrice(order []string, user string) error {
+func (s *shop) buyBigPrice(order []string, user string) error {
 	//делаем хэш
 	hash := makeHash(order)
 	//если хэш найден, проводим оплату
-	sum, ok := s.bigCache.Get(hash)
+	sum, ok := s.checkBigCache(hash)
 	if ok {
 		err := s.payment(sum, user, order)
 		if err == nil { //если деньги есть, делаем доставку
@@ -149,7 +123,7 @@ func (s *Shop) buyBigPrice(order []string, user string) error {
 	sum = s.collectOrder(order, user) //собираем заказ
 	err := s.payment(sum, user, order)
 	//делаем кэш. Даже если покупка не состоится (денег нет), все равно делаем
-	s.bigCache.Set(hash, sum)
+	s.writeBigCache(hash, sum)
 	//если ошибок нет, списываем товары
 	if err == nil {
 		s.delivery(order)
@@ -157,7 +131,13 @@ func (s *Shop) buyBigPrice(order []string, user string) error {
 	return err
 }
 
-func (s *Shop) collectOrder(order []string, user string) int {
+func (s *shop) checkBigCache(hash string) (int, bool) {
+	sum, ok := s.bigCache[hash]
+
+	return sum, ok
+}
+
+func (s *shop) collectOrder(order []string, user string) int {
 	var sum int
 
 	for _, item := range order {
@@ -167,7 +147,7 @@ func (s *Shop) collectOrder(order []string, user string) int {
 	return sum
 }
 
-func (s *Shop) payment(sum int, user string, order []string) error {
+func (s *shop) payment(sum int, user string, order []string) error {
 	//смотрим статус пользователя - вип он или кто?
 	//рассчитываем для него конечную стоимость исходя из статуса
 	statusUser := s.users[user].GetStatusUser()
@@ -204,7 +184,11 @@ func (s *Shop) payment(sum int, user string, order []string) error {
 	return nil
 }
 
-func (s *Shop) delivery(order []string) {
+func (s *shop) writeBigCache(hash string, sum int) {
+	s.bigCache[hash] = sum
+}
+
+func (s *shop) delivery(order []string) {
 	for _, item := range order {
 		shopItem := s.items[item]
 		shopItem.CountMinus()
@@ -212,7 +196,7 @@ func (s *Shop) delivery(order []string) {
 	}
 }
 
-func (s *Shop) buyLittlePrice(order []string, user string) error {
+func (s *shop) buyLittlePrice(order []string, user string) error {
 	//проверяем кэш
 	sum, ok := s.checkLittleCache(order)
 	if ok { //если там что-то лежит, покупаем (чекаем, вдруг нет денег)
@@ -235,7 +219,7 @@ func (s *Shop) buyLittlePrice(order []string, user string) error {
 	return err
 }
 
-func (s *Shop) checkLittleCache(order []string) (int, bool) {
+func (s *shop) checkLittleCache(order []string) (int, bool) {
 	mapStep, ok := s.littleCache[getItem(order, 0)]
 	if !ok {
 		return 0, false
@@ -251,7 +235,7 @@ func (s *Shop) checkLittleCache(order []string) (int, bool) {
 	return sum, true
 }
 
-func (s *Shop) writeLittleCache(order []string, sum int) {
+func (s *shop) writeLittleCache(order []string, sum int) {
 	item := getItem(order, 0)
 	mapStep1, ok := s.littleCache[item]
 	if !ok {
@@ -266,7 +250,7 @@ func (s *Shop) writeLittleCache(order []string, sum int) {
 	}
 }
 
-func (s *Shop) Intrigue(err error, user string) {
+func (s *shop) Intrigue(err error, user string) {
 	if err == nil {
 		fmt.Println("оплата прошла успешно, ")
 	} else {
@@ -282,12 +266,35 @@ func (s *Shop) Intrigue(err error, user string) {
 	fmt.Print(itemString)
 }
 
-func getItem(order []string, index int) string {
-	item := ""
-	if index < len(order) {
-		item = order[index]
+func NewShopPrepare(items []Itemer, users []Useer) *shop {
+	shop := newShop(items, users)
+
+	shopUpdater := &shopUpdater{}
+	shopUpdater.newShopUpdate(shop, items, users)
+
+	return shop
+}
+
+func newShop(items []Itemer, users []Useer) *shop {
+	usersMap := make(map[string]Useer, len(users))
+	itemsMap := make(map[string]Itemer, len(items))
+
+	for _, user := range users {
+		usersMap[user.GetName()] = user
 	}
-	return item
+	for _, item := range items {
+		itemsMap[item.GetName()] = item
+	}
+
+	littleCacheMap := make(map[string]map[string]int)
+	bigCacheMap := make(map[string]int)
+
+	return &shop{
+		users:       usersMap,
+		items:       itemsMap,
+		littleCache: littleCacheMap,
+		bigCache:    bigCacheMap,
+	}
 }
 
 func makeHash(order []string) string {
@@ -299,4 +306,12 @@ func makeHash(order []string) string {
 	}
 
 	return hash
+}
+
+func getItem(order []string, index int) string {
+	item := ""
+	if index < len(order) {
+		item = order[index]
+	}
+	return item
 }

@@ -1,35 +1,28 @@
 package items
 
-type item struct {
-	name  string
-	count int
-	price int
+type Item struct {
+	Name  string
+	Count int
+	Price int
 }
 
-func NewItem(name  string, count int, price int) *item {
-	return &item{
-		name: name,
-		count: count,
-		price: price,
-	}
+func (i Item) GetPrice() int {
+
+	return i.Price
 }
 
-func (i item) GetPrice() int {
-	return i.price
+func (i Item) GetName() string {
+	return i.Name
 }
 
-func (i item) GetName() string {
-	return i.name
+func (i Item) GetCount() int {
+	return i.Count
 }
 
-func (i item) GetCount() int {
-	return i.count
+func (i *Item) CountMinus() {
+	i.Count--
 }
 
-func (i *item) CountMinus() {
-	i.count--
-}
-
-func (i item) GetStatusItem() bool {
+func (i Item) GetStatusItem() bool {
 	return false
 }
