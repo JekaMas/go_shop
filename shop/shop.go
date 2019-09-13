@@ -18,6 +18,10 @@ type shop struct {
 type shopUpdater struct{}
 
 func (su *shopUpdater) newShopUpdate(s *shop, items []Itemer, users []Useer) {
+	// todo: тут надо только проверять, что методы userUpdate itemsUpdate... были вызваны и с правильными параметрами
+	// итоговое состояние shop после этих методов проверять не нужно
+	// место этого должны быть тесты на userUpdate itemsUpdate...  отдельно, которые проверяют состояние после себя
+
 	//апдейт юзеров
 	s.userUpdate(users)
 	//апдейт предметов
@@ -270,7 +274,7 @@ func NewShopPrepare(items []Itemer, users []Useer) *shop {
 	shop := newShop(items, users)
 
 	shopUpdater := &shopUpdater{}
-	shopUpdater.newShopUpdate(shop, items, users)
+	shopUpdater.newShopUpdate(shop)
 
 	return shop
 }
